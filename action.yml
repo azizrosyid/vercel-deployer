@@ -41,7 +41,7 @@ runs:
       run: |
         git config user.name "${{ inputs.rewrite-author-name }}"
         git config user.email "${{ inputs.rewrite-author-email }}"
-        git commit --amend --no-edit --author="${{ inputs.rewrite-author-name }} <${{ inputs.rewrite-author-email }}>"
+        git commit --amend --no-edit --allow-empty --author="${{ inputs.rewrite-author-name }} <${{ inputs.rewrite-author-email }}>"
 
     - name: Detect package manager
       id: detect-pm
