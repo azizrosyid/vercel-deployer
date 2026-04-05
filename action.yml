@@ -28,6 +28,9 @@ inputs:
   rewrite-author-email:
     description: 'Rewrite commit author email (optional)'
     default: ''
+  package-manager:
+    description: 'Package manager to use (npm, pnpm, yarn, bun). Auto-detects from lock file if not set.'
+    default: 'auto'
 
 runs:
   using: 'composite'
@@ -40,11 +43,31 @@ runs:
         git config user.email "${{ inputs.rewrite-author-email }}"
         git commit --amend --no-edit --author="${{ inputs.rewrite-author-name }} <${{ inputs.rewrite-author-email }}>"
 
+    - name: Detect package manager
+      id: detect-pm
+      shell: bash
+      run: |
+        if [ "${{ inputs.package-manager }}" != "auto" ]; then
+          echo "pm=${{ inputs.package-manager }}" >> $GITHUB_OUTPUT
+        elif [ -f pnpm-lock.yaml ]; then
+          echo "pm=pnpm" >> $GITHUB_OUTPUT
+        elif [ -f yarn.lock ]; then
+          echo "pm=yarn" >> $GITHUB_OUTPUT
+        elif [ -f bun.lockb ]; then
+          echo "pm=bun" >> $GITHUB_OUTPUT
+        else
+          echo "pm=npm" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Install pnpm
+      if: steps.detect-pm.outputs.pm == 'pnpm'
+      uses: pnpm/action-setup@v4
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
-        cache: npm
+        cache: ${{ steps.detect-pm.outputs.pm }}
 
     - name: Install Vercel CLI
       shell: bash
