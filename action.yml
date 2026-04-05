@@ -1,0 +1,82 @@
+name: 'Vercel Deployer'
+description: 'Reusable composite action for Vercel deployments with optional commit author rewriting'
+author: 'azizrosyid'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'black'
+
+inputs:
+  vercel-token:
+    description: 'Vercel API token'
+    required: true
+  vercel-org-id:
+    description: 'Vercel Organization ID'
+    required: true
+  vercel-project-id:
+    description: 'Vercel Project ID'
+    required: true
+  environment:
+    description: 'Deployment environment (production or preview)'
+    default: 'production'
+  node-version:
+    description: 'Node.js version'
+    default: '20'
+  rewrite-author-name:
+    description: 'Rewrite commit author name (optional)'
+    default: ''
+  rewrite-author-email:
+    description: 'Rewrite commit author email (optional)'
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Rewrite commit author
+      if: inputs.rewrite-author-name != '' && inputs.rewrite-author-email != ''
+      shell: bash
+      run: |
+        git config user.name "${{ inputs.rewrite-author-name }}"
+        git config user.email "${{ inputs.rewrite-author-email }}"
+        git commit --amend --no-edit --author="${{ inputs.rewrite-author-name }} <${{ inputs.rewrite-author-email }}>"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Install Vercel CLI
+      shell: bash
+      run: npm install --global vercel@latest
+
+    - name: Pull Vercel environment info
+      shell: bash
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+      run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ inputs.vercel-token }}
+
+    - name: Build project artifacts
+      shell: bash
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+      run: |
+        if [ "${{ inputs.environment }}" = "production" ]; then
+          vercel build --prod --token=${{ inputs.vercel-token }}
+        else
+          vercel build --token=${{ inputs.vercel-token }}
+        fi
+
+    - name: Deploy project artifacts to Vercel
+      shell: bash
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+      run: |
+        if [ "${{ inputs.environment }}" = "production" ]; then
+          vercel deploy --prebuilt --prod --token=${{ inputs.vercel-token }}
+        else
+          vercel deploy --prebuilt --token=${{ inputs.vercel-token }}
+        fi
